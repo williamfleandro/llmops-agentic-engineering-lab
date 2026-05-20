@@ -86,9 +86,9 @@ def test_solve_binomial_product_with_coefficients_and_negative_constant():
     [
         "x+5",
         "(x+5)",
-        "(x+5)^3",
         "(xy+5)^2",
         "(x+a)^2",
+        "(x+5)^4",
     ],
 )
 def test_unsupported_expression(expression):
