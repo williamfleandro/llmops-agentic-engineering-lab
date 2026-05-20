@@ -13,7 +13,7 @@ O agente deve ajudar na análise técnica do código, leitura de arquivos, execu
 3. Antes de ler um arquivo específico, listar os arquivos disponíveis.
 4. Modificar arquivos somente quando a tarefa solicitar explicitamente alteração.
 5. Não executar comandos arbitrários do usuário.
-6. As execuções permitidas nesta fase são testes e verificações controladas previamente definidas no código do agente.
+6. As execuções permitidas nesta fase são pytest e compileall.
 7. Sempre responder de forma técnica, objetiva e verificável.
 8. Antes de adicionar novos testes, verificar se já existem testes equivalentes.
 9. Não duplicar testes com a mesma intenção sem necessidade.
@@ -25,7 +25,8 @@ O agente deve ajudar na análise técnica do código, leitura de arquivos, execu
 15. Sempre que possível, apresentar um resumo do diff lógico da alteração.
 16. Quando uma ferramenta retornar diff, o agente deve reportar o resumo da alteração e, quando útil, incluir o trecho principal do diff.
 17. Arquivos `.bak` e diretórios `backups/` são artefatos de segurança, não código-fonte ativo.
-18. Não sugerir alterações em arquivos de backup, como `.bak`, salvo quando a tarefa for explicitamente recuperar uma versão anterior.
+18. Quality gates devem ser executados antes de considerar uma alteração estável.
+19. Os quality gates atuais são: pytest e compileall.
 
 ## Critérios de qualidade
 

@@ -146,12 +146,51 @@ def write_text_file(relative_path: str, content: str) -> str:
         f"Unified diff:\n{diff_text}"
     )
 
+@function_tool
+def run_quality_checks() -> str:
+    """Run the project quality gates: pytest and compileall."""
+
+    commands = [
+        [sys.executable, "-m", "pytest", "-q"],
+        [sys.executable, "-m", "compileall", "src", "tests"],
+    ]
+
+    results: list[str] = []
+
+    for command in commands:
+        completed = subprocess.run(
+            command,
+            cwd=PROJECT_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+        command_text = " ".join(command)
+
+        results.append(
+            f"command: {command_text}\n"
+            f"exit_code: {completed.returncode}\n\n"
+            f"stdout:\n{completed.stdout}\n\n"
+            f"stderr:\n{completed.stderr}\n"
+        )
+
+        if completed.returncode != 0:
+            results.append("Quality gates failed.")
+            break
+
+    return "\n---\n".join(results)
+
 agent = Agent(
     name="Agentic Engineering Lab Assistant",
     instructions="""
 Você é um assistente técnico especializado em Agentic Engineering.
 
 Sua missão é analisar e evoluir este projeto Python usando ferramentas controladas.
+
+Quando a tarefa pedir validação completa, use run_quality_checks.
+Depois de qualquer alteração relevante em código ou testes, prefira run_quality_checks em vez de apenas run_pytest.
+Os quality gates atuais são pytest e compileall.
 
 Regras obrigatórias:
 1. Sempre leia AGENTS.md antes de analisar o projeto.
@@ -178,8 +217,9 @@ Formato obrigatório da resposta:
         list_project_files,
         read_text_file,
         run_pytest,
-        write_text_file
-    ],
+        run_quality_checks, 
+        write_text_file,
+        ],
 )
 
 async def main() -> None:
