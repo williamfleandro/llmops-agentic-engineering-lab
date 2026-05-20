@@ -1,3 +1,6 @@
 openai-agents
 pytest
 ruff
+fastapi
+uvicorn
+httpx
