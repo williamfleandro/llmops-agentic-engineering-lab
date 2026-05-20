@@ -32,3 +32,6 @@ jobs:
       - name: Check Python compilation
         run: |
           python -m compileall src tests
+      - name: Run Ruff lint
+        run: |
+          python -m ruff check src tests

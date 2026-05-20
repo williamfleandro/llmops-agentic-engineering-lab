@@ -26,7 +26,7 @@ O agente deve ajudar na análise técnica do código, leitura de arquivos, execu
 16. Quando uma ferramenta retornar diff, o agente deve reportar o resumo da alteração e, quando útil, incluir o trecho principal do diff.
 17. Arquivos `.bak` e diretórios `backups/` são artefatos de segurança, não código-fonte ativo.
 18. Quality gates devem ser executados antes de considerar uma alteração estável.
-19. Os quality gates atuais são: pytest e compileall.
+19. Os quality gates atuais são: pytest, compileall e ruff check.
 
 ## Critérios de qualidade
 
