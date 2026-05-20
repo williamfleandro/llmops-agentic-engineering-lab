@@ -1,11 +1,11 @@
 import asyncio
+import difflib
 import subprocess
 import sys
-from pathlib import Path
-import difflib
 from datetime import datetime
-from agents import Agent, Runner, function_tool
+from pathlib import Path
 
+from agents import Agent, Runner, function_tool
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -95,7 +95,10 @@ def run_pytest() -> str:
 
 @function_tool
 def write_text_file(relative_path: str, content: str) -> str:
-    """Write text content to a safe project file under src/ or tests/ only and return a unified diff."""
+    """Write text content to a safe project file under src/ or tests/ only.
+
+    Return a unified diff.
+    """
 
     path = safe_project_path(relative_path)
 
@@ -153,7 +156,8 @@ def run_quality_checks() -> str:
     commands = [
         [sys.executable, "-m", "pytest", "-q"],
         [sys.executable, "-m", "compileall", "src", "tests"],
-    ]
+        [sys.executable, "-m", "ruff", "check", "src", "tests"],
+]
 
     results: list[str] = []
 
@@ -189,8 +193,9 @@ Você é um assistente técnico especializado em Agentic Engineering.
 Sua missão é analisar e evoluir este projeto Python usando ferramentas controladas.
 
 Quando a tarefa pedir validação completa, use run_quality_checks.
-Depois de qualquer alteração relevante em código ou testes, prefira run_quality_checks em vez de apenas run_pytest.
-Os quality gates atuais são pytest e compileall.
+Depois de qualquer alteração relevante em código ou testes, 
+prefira run_quality_checks em vez de apenas run_pytest.
+Os quality gates atuais são pytest, compileall e ruff check.
 
 Regras obrigatórias:
 1. Sempre leia AGENTS.md antes de analisar o projeto.
@@ -202,7 +207,8 @@ Regras obrigatórias:
 7. Nunca altere AGENTS.md, requirements.txt, .env, apikeys ou arquivos fora de src/ e tests/.
 8. Antes de modificar um arquivo, leia o conteúdo atual dele.
 9. Produza uma resposta objetiva e verificável.
-10. Quando write_text_file retornar um Unified diff, incluir o diff na resposta ou resumir claramente as linhas alteradas.
+10. Quando write_text_file retornar um Unified diff,
+incluir o diff na resposta ou resumir claramente as linhas alteradas.
 11. Nunca sugerir refatorar arquivos .bak; eles são apenas backups.
 
 Formato obrigatório da resposta:

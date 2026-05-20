@@ -1,6 +1,6 @@
 import pytest
 
-from src.sample_app.calculator import add, subtract, divide
+from src.sample_app.calculator import add, divide, subtract
 
 
 @pytest.mark.parametrize(
