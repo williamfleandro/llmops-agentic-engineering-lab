@@ -21,27 +21,45 @@ class MathSolution:
 def solve_notable_product(expression: str) -> MathSolution:
     """Solve supported notable product expressions with step-by-step explanation."""
 
-    normalized = expression.strip().replace(" ", "").replace("²", "^2")
+    normalized = (
+        expression.strip()
+        .replace(" ", "")
+        .replace("²", "^2")
+        .replace("³", "^3")
+    )
+
+    cube_match = re.fullmatch(
+        r"\((\d*(?:\.\d+)?[a-zA-Z]|\d+(?:\.\d+)?)"
+        r"([+-])"
+        r"(\d*(?:\.\d+)?[a-zA-Z]|\d+(?:\.\d+)?)\)\^3",
+        normalized,
+    )
+
+    if cube_match:
+        return _solve_cube(expression, cube_match)
 
     binomial_match = re.fullmatch(
-    r"\((\d*(?:\.\d+)?)([a-zA-Z])([+-])(\d+(?:\.\d+)?)\)"
-    r"\*?"
-    r"\((\d*(?:\.\d+)?)([a-zA-Z])([+-])(\d+(?:\.\d+)?)\)",
-    normalized,
+        r"\((\d*(?:\.\d+)?)([a-zA-Z])([+-])(\d+(?:\.\d+)?)\)"
+        r"\*?"
+        r"\((\d*(?:\.\d+)?)([a-zA-Z])([+-])(\d+(?:\.\d+)?)\)",
+        normalized,
     )
 
     if binomial_match:
         return _solve_binomial_product(expression, binomial_match)
-    
-    match = re.fullmatch(r"\(([a-zA-Z])([+-])(\d+(?:\.\d+)?)\)\^2", normalized)
 
-    if not match:
-        raise ValueError(
-            "Unsupported expression. Use formats like (x+5)^2, "
-             "(x-5)^2, (x+2.5)^2 or (x+5)*(x+7)."
+    square_match = re.fullmatch(
+        r"\(([a-zA-Z])([+-])(\d+(?:\.\d+)?)\)\^2",
+        normalized,
     )
 
-    variable, operator, number_text = match.groups()
+    if not square_match:
+        raise ValueError(
+            "Unsupported expression. Use formats like (x+5)^2, "
+            "(x-5)^2, (x+2.5)^2, (x+5)*(x+7) or (x+y)^3."
+        )
+
+    variable, operator, number_text = square_match.groups()
     number = Decimal(number_text)
 
     if operator == "+":
@@ -50,7 +68,237 @@ def solve_notable_product(expression: str) -> MathSolution:
     return _solve_square_of_difference(expression, variable, number)
 
 
-def _solve_square_of_sum(expression: str, variable: str, number: Decimal) -> MathSolution:
+def _solve_cube(
+    expression: str,
+    match: re.Match[str],
+) -> MathSolution:
+    first_term, operator, second_term = match.groups()
+
+    if operator == "+":
+        return _solve_cube_of_sum(expression, first_term, second_term)
+
+    return _solve_cube_of_difference(expression, first_term, second_term)
+
+
+def _solve_cube_of_sum(
+    expression: str,
+    first_term: str,
+    second_term: str,
+) -> MathSolution:
+    result = _format_cube_result(
+        first_term=first_term,
+        second_term=second_term,
+        operator="+",
+    )
+
+    development_line = (
+        f"{expression} = {first_term}^3 + 3 · {first_term}^2 · {second_term} + "
+        f"3 · {first_term} · {second_term}^2 + {second_term}^3 = {result}"
+    )
+
+    return MathSolution(
+        original_expression=expression,
+        topic="Produtos notáveis",
+        rule_name="Cubo da soma",
+        rule_formula="(a+b)^3 = a^3 + 3a^2b + 3ab^2 + b^3",
+        identified_terms={
+            "a": first_term,
+            "b": second_term,
+        },
+        steps=[
+            f"Identificamos o primeiro termo: a = {first_term}.",
+            f"Identificamos o segundo termo: b = {second_term}.",
+            "Aplicamos a regra do cubo da soma.",
+            "Calculamos a^3, 3a^2b, 3ab^2 e b^3.",
+            f"Resultado final: {result}.",
+        ],
+        development_line=development_line,
+        result=result,
+    )
+
+
+def _solve_cube_of_difference(
+    expression: str,
+    first_term: str,
+    second_term: str,
+) -> MathSolution:
+    result = _format_cube_result(
+        first_term=first_term,
+        second_term=second_term,
+        operator="-",
+    )
+
+    development_line = (
+        f"{expression} = {first_term}^3 - 3 · {first_term}^2 · {second_term} + "
+        f"3 · {first_term} · {second_term}^2 - {second_term}^3 = {result}"
+    )
+
+    return MathSolution(
+        original_expression=expression,
+        topic="Produtos notáveis",
+        rule_name="Cubo da diferença",
+        rule_formula="(a-b)^3 = a^3 - 3a^2b + 3ab^2 - b^3",
+        identified_terms={
+            "a": first_term,
+            "b": second_term,
+        },
+        steps=[
+            f"Identificamos o primeiro termo: a = {first_term}.",
+            f"Identificamos o segundo termo: b = {second_term}.",
+            "Aplicamos a regra do cubo da diferença.",
+            "Calculamos a^3, -3a^2b, 3ab^2 e -b^3.",
+            f"Resultado final: {result}.",
+        ],
+        development_line=development_line,
+        result=result,
+    )
+
+
+def _format_cube_result(
+    first_term: str,
+    second_term: str,
+    operator: str,
+) -> str:
+    first = _parse_simple_monomial(first_term)
+    second = _parse_simple_monomial(second_term)
+
+    if operator == "+":
+        terms = [
+            _power_monomial(first, 3),
+            _multiply_monomials(
+                _constant_monomial(Decimal("3")),
+                _power_monomial(first, 2),
+                second,
+            ),
+            _multiply_monomials(
+                _constant_monomial(Decimal("3")),
+                first,
+                _power_monomial(second, 2),
+            ),
+            _power_monomial(second, 3),
+        ]
+    else:
+        terms = [
+            _power_monomial(first, 3),
+            _multiply_monomials(
+                _constant_monomial(Decimal("-3")),
+                _power_monomial(first, 2),
+                second,
+            ),
+            _multiply_monomials(
+                _constant_monomial(Decimal("3")),
+                first,
+                _power_monomial(second, 2),
+            ),
+            _multiply_monomials(
+                _constant_monomial(Decimal("-1")),
+                _power_monomial(second, 3),
+            ),
+        ]
+
+    return _join_monomial_terms(terms)
+
+
+def _parse_simple_monomial(term: str) -> tuple[Decimal, dict[str, int]]:
+    number_match = re.fullmatch(r"\d+(?:\.\d+)?", term)
+
+    if number_match:
+        return Decimal(term), {}
+
+    monomial_match = re.fullmatch(r"(\d*(?:\.\d+)?)([a-zA-Z])", term)
+
+    if not monomial_match:
+        raise ValueError(f"Unsupported monomial: {term}")
+
+    coefficient_text, variable = monomial_match.groups()
+
+    if coefficient_text == "":
+        coefficient = Decimal("1")
+    else:
+        coefficient = Decimal(coefficient_text)
+
+    return coefficient, {variable: 1}
+
+
+def _constant_monomial(value: Decimal) -> tuple[Decimal, dict[str, int]]:
+    return value, {}
+
+
+def _power_monomial(
+    monomial: tuple[Decimal, dict[str, int]],
+    power: int,
+) -> tuple[Decimal, dict[str, int]]:
+    coefficient, variables = monomial
+
+    powered_variables = {
+        variable: exponent * power
+        for variable, exponent in variables.items()
+    }
+
+    return coefficient**power, powered_variables
+
+
+def _multiply_monomials(
+    *monomials: tuple[Decimal, dict[str, int]],
+) -> tuple[Decimal, dict[str, int]]:
+    coefficient = Decimal("1")
+    variables: dict[str, int] = {}
+
+    for monomial_coefficient, monomial_variables in monomials:
+        coefficient *= monomial_coefficient
+
+        for variable, exponent in monomial_variables.items():
+            variables[variable] = variables.get(variable, 0) + exponent
+
+    return coefficient, variables
+
+
+def _format_monomial(
+    coefficient: Decimal,
+    variables: dict[str, int],
+) -> str:
+    absolute_coefficient = abs(coefficient)
+
+    variable_part = "".join(
+        f"{variable}^{exponent}" if exponent > 1 else variable
+        for variable, exponent in variables.items()
+    )
+
+    if variable_part and absolute_coefficient == Decimal("1"):
+        body = variable_part
+    else:
+        body = f"{_format_number(absolute_coefficient)}{variable_part}"
+
+    if coefficient < 0:
+        return f"-{body}"
+
+    return body
+
+
+def _join_monomial_terms(
+    terms: list[tuple[Decimal, dict[str, int]]],
+) -> str:
+    formatted_terms = [
+        _format_monomial(coefficient, variables)
+        for coefficient, variables in terms
+    ]
+
+    expression = formatted_terms[0]
+
+    for term in formatted_terms[1:]:
+        if term.startswith("-"):
+            expression += f" - {term[1:]}"
+        else:
+            expression += f" + {term}"
+
+    return expression
+
+
+def _solve_square_of_sum(
+    expression: str,
+    variable: str,
+    number: Decimal,
+) -> MathSolution:
     b = _format_number(number)
     middle_coefficient = _format_number(Decimal("2") * number)
     square_number = _format_number(number * number)
@@ -58,7 +306,8 @@ def _solve_square_of_sum(expression: str, variable: str, number: Decimal) -> Mat
     result = f"{variable}^2 + {middle_coefficient}{variable} + {square_number}"
 
     development_line = (
-        f"({variable}+{b})^2 = {variable}^2 + 2 · {variable} · {b} + {b}^2 = {result}"
+        f"({variable}+{b})^2 = {variable}^2 + 2 · {variable} · {b} + "
+        f"{b}^2 = {result}"
     )
 
     return MathSolution(
@@ -95,7 +344,8 @@ def _solve_square_of_difference(
     result = f"{variable}^2 - {middle_coefficient}{variable} + {square_number}"
 
     development_line = (
-        f"({variable}-{b})^2 = {variable}^2 - 2 · {variable} · {b} + {b}^2 = {result}"
+        f"({variable}-{b})^2 = {variable}^2 - 2 · {variable} · {b} + "
+        f"{b}^2 = {result}"
     )
 
     return MathSolution(
@@ -118,6 +368,7 @@ def _solve_square_of_difference(
         development_line=development_line,
         result=result,
     )
+
 
 def _solve_binomial_product(
     expression: str,
@@ -241,7 +492,11 @@ def _format_factor(value: Decimal) -> str:
     return formatted
 
 
-def _format_binomial(coefficient: Decimal, constant: Decimal, variable: str) -> str:
+def _format_binomial(
+    coefficient: Decimal,
+    constant: Decimal,
+    variable: str,
+) -> str:
     variable_term = _format_variable_factor(coefficient, variable)
     constant_text = _format_number(abs(constant))
 
@@ -299,6 +554,7 @@ def _format_polynomial(
 
     return _join_polynomial_terms(terms)
 
+
 def _format_number(value: Decimal) -> str:
     normalized = value.normalize()
     text = format(normalized, "f")
@@ -307,8 +563,3 @@ def _format_number(value: Decimal) -> str:
         text = text.rstrip("0").rstrip(".")
 
     return text
-
-    if normalized == normalized.to_integral():
-        return str(normalized.to_integral())
-
-    return format(normalized, "f")

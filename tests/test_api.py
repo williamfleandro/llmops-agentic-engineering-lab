@@ -33,7 +33,7 @@ def test_solve_square_of_sum_api():
 def test_solve_unsupported_expression_api():
     response = client.post(
         "/api/v1/math/solve",
-        json={"expression": "(x+5)^3"},
+        json={"expression": "(x+5)^4"},
     )
 
     assert response.status_code == 400
