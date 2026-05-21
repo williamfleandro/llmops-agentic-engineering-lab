@@ -1,68 +1,16 @@
 import asyncio
 import sys
-from datetime import datetime
-from pathlib import Path
 
-from agents import Agent, Runner, function_tool
+from agents import Agent, Runner
 
-try:
-    from src.main import (
-        list_project_files,
-        read_text_file,
-        run_pytest,
-        run_quality_checks,
-        write_text_file,
-    )
-except ModuleNotFoundError:
-    from main import (
-        list_project_files,
-        read_text_file,
-        run_pytest,
-        run_quality_checks,
-        write_text_file,
-    )
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DOCS_DIR = PROJECT_ROOT / "docs"
-RESULTS_FILE = DOCS_DIR / "results.md"
-
-
-def save_results_file(task: str, content: str) -> str:
-    """Save multiagent execution results into docs/results.md."""
-
-    DOCS_DIR.mkdir(exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    markdown = f"""# Multiagent Execution Results
-
-## Timestamp
-
-{timestamp}
-
-## Task
-
-```text
-{task}
-```
-
-## Result
-
-{content}
-"""
-
-    RESULTS_FILE.write_text(markdown, encoding="utf-8")
-
-    return "Execution results saved in docs/results.md."
-
-
-@function_tool
-def save_execution_results(task: str, content: str) -> str:
-    """Save multiagent execution results into docs/results.md."""
-
-    return save_results_file(task=task, content=content)
-
+from documentation_harness import save_documentation_report
+from main import (
+    list_project_files,
+    read_text_file,
+    run_pytest,
+    run_quality_checks,
+    write_text_file,
+)
 
 architecture_agent = Agent(
     name="Architecture Agent",
@@ -97,7 +45,7 @@ Regras:
 1. Leia AGENTS.md antes de modificar qualquer coisa.
 2. Use list_project_files antes de ler arquivos específicos.
 3. Leia o arquivo atual antes de modificá-lo.
-4. Escreva somente em src/ e tests/.
+4. Escreva somente em src/, tests/ e frontend/.
 5. Nunca altere .env, apikeys, .venv, arquivos .bak ou backups/.
 6. Depois de qualquer alteração relevante, execute run_quality_checks.
 7. Informe exatamente quais arquivos foram modificados.
@@ -166,19 +114,15 @@ documentation_agent = Agent(
     instructions="""
 Você é um agente de documentação técnica.
 
-Sua função é registrar a execução do sistema multiagent em Markdown.
+Sua função é transformar a execução recebida em uma síntese técnica clara.
 
 Regras:
-1. Documente a tarefa executada.
-2. Documente o resultado recebido.
-3. Salve o resultado em docs/results.md usando save_execution_results.
-4. Não modifique arquivos de código.
-5. Não invente resultados.
-6. Documente apenas o conteúdo recebido.
+1. Não escreva arquivos diretamente.
+2. Não invente resultados.
+3. Documente somente fatos recebidos na tarefa.
+4. Organize a saída em diagnóstico, evidências, riscos e próximo passo.
+5. O Documentation Harness externo fará a persistência incremental.
 """,
-    tools=[
-        save_execution_results,
-    ],
 )
 
 
@@ -187,33 +131,16 @@ orchestrator_agent = Agent(
     instructions="""
 Você é o agente orquestrador de engenharia.
 
-Sua função é coordenar agentes especializados para executar tarefas de
-Agentic Engineering neste projeto Python.
-
-Fluxo recomendado:
-1. Para análise ou planejamento, chame o Architecture Agent.
-2. Para implementação, chame o Code Implementation Agent.
-3. Para validação, chame o Test Validation Agent.
-4. Para revisão final, chame o Code Review Agent.
-5. Para documentação final, chame o Documentation Agent.
+Use este agente apenas para tarefas pequenas. Para tarefas grandes,
+prefira executar uma etapa por vez usando os modos:
+architecture, code, test, review e docs.
 
 Regras obrigatórias:
 1. Nunca diga que código foi alterado se o Code Agent não foi chamado.
 2. Nunca diga que testes passaram se o Test Agent não foi chamado.
-3. Para tarefas de código, use a sequência:
-   Architecture Agent → Code Implementation Agent → Test Validation Agent
-   → Code Review Agent → Documentation Agent.
-4. Se a tarefa for apenas revisão, use Code Review Agent e Documentation Agent.
-5. Se a tarefa for apenas validação, use Test Validation Agent e Documentation Agent.
-6. Sempre gere documentação final da execução em docs/results.md.
-7. Responda sempre com:
-   - Diagnóstico
-   - Agentes acionados
-   - Alterações realizadas
-   - Resultado dos quality gates
-   - Revisão
-   - Documentação gerada
-   - Próximo passo recomendado
+3. A persistência documental é responsabilidade do Documentation Harness.
+4. Responda com diagnóstico, agentes acionados, alterações, quality gates,
+   revisão, documentação gerada e próximo passo recomendado.
 """,
     tools=[
         architecture_agent.as_tool(
@@ -222,7 +149,7 @@ Regras obrigatórias:
         ),
         code_agent.as_tool(
             tool_name="code_implementation_agent",
-            tool_description="Implementa alterações controladas em src/ e tests/.",
+            tool_description="Implementa alterações controladas.",
         ),
         test_agent.as_tool(
             tool_name="test_validation_agent",
@@ -234,33 +161,67 @@ Regras obrigatórias:
         ),
         documentation_agent.as_tool(
             tool_name="documentation_agent",
-            tool_description="Documenta a execução em docs/results.md.",
+            tool_description="Produz síntese técnica para documentação.",
         ),
     ],
 )
 
 
-async def main() -> None:
-    task = " ".join(sys.argv[1:]).strip()
+AGENTS_BY_STAGE: dict[str, Agent] = {
+    "architecture": architecture_agent,
+    "code": code_agent,
+    "test": test_agent,
+    "review": review_agent,
+    "docs": documentation_agent,
+    "orchestrator": orchestrator_agent,
+}
+
+
+def parse_stage_and_task(argv: list[str]) -> tuple[str, str]:
+    if not argv:
+        task = input("Digite a tarefa para o sistema multiagent: ")
+        return "orchestrator", task
+
+    first_argument = argv[0].strip().lower()
+
+    if first_argument in AGENTS_BY_STAGE:
+        stage = first_argument
+        task = " ".join(argv[1:]).strip()
+    else:
+        stage = "orchestrator"
+        task = " ".join(argv).strip()
 
     if not task:
-        task = input("Digite a tarefa para o sistema multiagent: ")
+        task = input(f"Digite a tarefa para o agente {stage}: ")
+
+    return stage, task
+
+
+async def run_single_stage(stage: str, task: str) -> str:
+    agent = AGENTS_BY_STAGE[stage]
+    result = await Runner.run(agent, task)
+
+    return result.final_output
+
+
+async def main() -> None:
+    stage, task = parse_stage_and_task(sys.argv[1:])
 
     try:
-        result = await Runner.run(orchestrator_agent, task)
-        final_output = result.final_output
+        final_output = await run_single_stage(stage=stage, task=task)
     except Exception as error:
         final_output = f"Execution failed with error: {error}"
 
-    print("\n=== RESPOSTA DO SISTEMA MULTIAGENT ===\n")
+    print(f"\n=== RESPOSTA DO AGENTE: {stage.upper()} ===\n")
     print(final_output)
 
-    save_results_file(
+    documentation_result = save_documentation_report(
+        stage=stage,
         task=task,
         content=final_output,
     )
 
-    print("\nResultado salvo em docs/results.md")
+    print(f"\n{documentation_result}")
 
 
 if __name__ == "__main__":
