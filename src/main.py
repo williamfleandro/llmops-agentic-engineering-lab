@@ -24,6 +24,11 @@ ALLOWED_SUFFIXES = {
     ".yaml",
     ".yml",
     ".toml",
+    ".html",
+    ".css",
+    ".js",
+    ".ts",
+    ".tsx",
 }
 
 
@@ -105,6 +110,7 @@ def write_text_file(relative_path: str, content: str) -> str:
     allowed_roots = [
         (PROJECT_ROOT / "src").resolve(),
         (PROJECT_ROOT / "tests").resolve(),
+        (PROJECT_ROOT / "frontend").resolve(),
     ]
 
     if not any(path.is_relative_to(root) for root in allowed_roots):
