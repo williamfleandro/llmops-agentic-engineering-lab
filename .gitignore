@@ -31,3 +31,6 @@ multiagents_sequential.py
 .idea/
 .DS_Store
 Thumbs.db
+
+# Agent latest execution artifact
+docs/results.md
